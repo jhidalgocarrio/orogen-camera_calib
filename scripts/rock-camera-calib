@@ -1,0 +1,95 @@
+#! /usr/bin/env ruby
+
+require 'vizkit'
+require 'optparse'
+
+hostname = nil
+task_context_name = nil
+log_file_path = nil
+options = OptionParser.new do |opt|
+    opt.banner = <<-EOD
+rock-camera-calib [options] /path/to/config/file
+    EOD
+
+    opt.on '--log=LOG_FILE', String, 'Path to the log file' do |log|
+        log_file_path = log
+    end
+
+    opt.on '--task=TASK_CONTEXT', String, 'The task context to connect' do |task|
+        task_context_name = task
+    end
+
+    opt.on '--host=HOSTNAME', String, 'the host we should contact to find RTT tasks' do |host|
+        hostname = host
+    end
+
+    opt.on '--help', 'this help message' do
+        puts opt
+        exit 1
+    end
+end
+
+
+args = options.parse(ARGV)
+config_file = args.shift
+
+if !config_file
+    puts "missing configuration file argument"
+    puts options
+    exit 1
+end
+
+if !task_context_name && !log_file_path
+    puts "missing task context name or path for the log file"
+    puts options
+    exit 1
+end
+
+
+if hostname
+    Orocos::CORBA.name_service.ip = hostname
+end
+
+Orocos.initialize
+
+#if task_context_name
+#    driver = Orocos::Async.name_service.get task_context_name
+#    matching_ports = driver.ports.find_all {|p| p.is_a? Orocos::OutputPort and p.type == Types::Base::Samples::Frame}
+#    if matching_ports.size > 2
+#      puts "Multiple Camera Ports in the task. Maximum number is 2 for stereo calibration."
+#      matching_ports.each do |p| puts p.name end
+#      exit 1
+#    end
+#    if matching_ports.size < 1
+#      puts "No Camera Port available."
+#      exit 1
+#    end
+#    matching_ports[0].connect_to do |data|
+#        vis_gui.updateData(data)
+#    end
+#
+if log_file_path
+    Orocos.run 'camera_calib::Task' => 'camera_calib' do
+
+        calibration = Orocos.name_service.get 'camera_calib'
+
+        # Get the log
+        log_replay = Orocos::Log::Replay.open(log_file_path)
+        matching_ports = log_replay.ports.find_all {|p| p.type == Types::Base::Samples::Frame::Frame}
+
+        if matching_ports.size > 2
+            puts "Multiple Camera Ports in the task. Connected the two first ports"
+            matching_ports.each do |p| puts p.name end
+        end
+
+        if matching_ports.size < 1
+            puts "No Camera Port available."
+            exit 1
+        end
+
+        matching_ports[0].connect_to(calibration.left_frame, :type => :buffer, :size => 100 )
+        matching_ports[1].connect_to(calibration.right_frame, :type => :buffer, :size => 100 )
+
+    end
+end
+
