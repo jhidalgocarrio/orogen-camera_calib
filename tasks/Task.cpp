@@ -56,6 +56,17 @@ bool Task::configureHook()
         return false;
     }
 
+    /** Set the output images **/
+    ::base::samples::frame::Frame *outFrameLeft = new ::base::samples::frame::Frame();
+
+    frameLeft_out.reset(outFrameLeft);
+    outFrameLeft = NULL;
+
+    ::base::samples::frame::Frame *outFrameRight = new ::base::samples::frame::Frame();
+
+    frameRight_out.reset(outFrameRight);
+    outFrameRight = NULL;
+
     return true;
 }
 bool Task::startHook()
@@ -69,106 +80,104 @@ void Task::updateHook()
     TaskBase::updateHook();
 
     RTT::extras::ReadOnlyPointer<base::samples::frame::Frame> leftFrame, rightFrame;
-    bool blinkOutput = false;
+    std::vector<cv::Point2f> pointLeftBuf, pointRightBuf;
+    bool foundLeft = false; bool foundRight = false;
 
-    /** Get the next frame **/
-    if (_left_frame.read(leftFrame) == RTT::NewData)
+    std::cout<<"[CAMERA_CALIB] Time: "<<clock() - prevTimestamp<<"\n";
+
+    /** Get the next frame of camera one **/
+    if (_left_frame.readNewest(leftFrame, false) == RTT::NewData)
     {
-        if( clock() - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC )
+        base::samples::frame::Frame leftImage;
+
+        /** Whatever format it is, try to convert to RGB unless it is GRAYSCALE **/
+        if (leftFrame->getFrameMode() != base::samples::frame::MODE_GRAYSCALE)
         {
-
-            std::cout<<"Time: "<<clock() - prevTimestamp<<"\n";
-
-            base::samples::frame::Frame leftImage;
-
-            /** Whatever format it is, try to convert to RGB unless it is GRAYSCALE **/
-            if (leftFrame->getFrameMode() != base::samples::frame::MODE_GRAYSCALE)
+            leftImage.frame_mode = base::samples::frame::MODE_BGR;
+            leftImage.setDataDepth(leftFrame->getDataDepth());
+            try
             {
-                leftImage.frame_mode = base::samples::frame::MODE_BGR;
-                leftImage.setDataDepth(leftFrame->getDataDepth());
-                try
-                {
-                    frameHelper.convertColor (*leftFrame, leftImage);
-                }
-                catch(const std::runtime_error& error)
-                {
-                    std::cout<<"[CATCH] "<<error.what()<<"\n";
-                    leftImage = *leftFrame;
-                }
+                frameHelper.convertColor (*leftFrame, leftImage);
             }
-            else
+            catch(const std::runtime_error& error)
+            {
+                std::cout<<"[CATCH] "<<error.what()<<"\n";
                 leftImage = *leftFrame;
-
-            /** Convert to OpenCv format **/
-            view_left = frame_helper::FrameHelper::convertToCvMat(leftImage);
-
-            imageSize = view_left.size();  // Format input image.
-            if( s.flipVertical )    flip( view_left, view_left, 0 );
-
-            /** Find the pattern **/
-            std::vector<cv::Point2f> pointBuf;
-            bool found;
-            switch( s.calibrationPattern ) // Find feature points on the input format
-            {
-                case Settings::CHESSBOARD:
-                    found = findChessboardCorners( view_left, s.boardSize, pointBuf,
-                        CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
-                    break;
-                case Settings::CIRCLES_GRID:
-                    found = findCirclesGrid( view_left, s.boardSize, pointBuf );
-                    break;
-                case Settings::ASYMMETRIC_CIRCLES_GRID:
-                    found = findCirclesGrid( view_left, s.boardSize, pointBuf, CALIB_CB_ASYMMETRIC_GRID );
-                    break;
-                default:
-                    found = false;
-                    break;
             }
-
-            /** If the pattern is found **/
-            if (found)
-            {
-                // improve the found corners' coordinate accuracy for chessboard
-                if( s.calibrationPattern == Settings::CHESSBOARD)
-                {
-                    Mat view_leftGray;
-                    base::samples::frame::Frame leftImageGray;
-                    leftImageGray.init(*leftFrame, false);
-                    leftImageGray.frame_mode = base::samples::frame::MODE_GRAYSCALE;
-
-                    try
-                    {
-                        frameHelper.convertColor (*leftFrame, leftImageGray);
-
-                        std::cout<<"Frame Mode: "<<leftFrame->getFrameMode()<<"\n";
-                        std::cout<<"Frame Mode(Gray): "<<leftImageGray.getFrameMode()<<"\n";
-
-                        view_leftGray = frame_helper::FrameHelper::convertToCvMat(leftImageGray);
-
-                        cornerSubPix( view_leftGray, pointBuf, Size(11,11),
-                            Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
-
-                    }
-                    catch(const std::runtime_error& error)
-                    {
-                        std::cout<<"[CATCH] "<<error.what()<<"\n";
-                    }
-
-                }
-
-                // Draw the corners.
-                drawChessboardCorners( view_left, s.boardSize, Mat(pointBuf), found );
-            }
-
-            imagePoints.push_back(pointBuf);
-            prevTimestamp = clock();
-
-            if( blinkOutput )
-                bitwise_not(view_left, view_left);
-
-            /** Show image and check for input commands **/
-            imshow("Image View", view_left);
         }
+        else
+            leftImage = *leftFrame;
+
+        /** Output image to show it in a port **/
+        ::base::samples::frame::Frame *frame_ptr = frameLeft_out.write_access();
+
+        /** Find the pattern **/
+        foundLeft = this->findPattern(s, leftImage, *frame_ptr, pointLeftBuf);
+
+        /** Write to the out port **/
+        frame_ptr->time = leftFrame->time;
+        frameLeft_out.reset(frame_ptr);
+        _left_frame_out.write(frameLeft_out);
+
+    }
+
+    /** Get the next frame of camera two **/
+    if (_right_frame.readNewest(rightFrame, false) == RTT::NewData)
+    {
+        base::samples::frame::Frame rightImage;
+
+        /** Whatever format it is, try to convert to RGB unless it is GRAYSCALE **/
+        if (rightFrame->getFrameMode() != base::samples::frame::MODE_GRAYSCALE)
+        {
+            rightImage.frame_mode = base::samples::frame::MODE_BGR;
+            rightImage.setDataDepth(rightFrame->getDataDepth());
+            try
+            {
+                frameHelper.convertColor (*rightFrame, rightImage);
+            }
+            catch(const std::runtime_error& error)
+            {
+                std::cout<<"[CATCH] "<<error.what()<<"\n";
+                rightImage = *rightFrame;
+            }
+        }
+        else
+            rightImage = *rightFrame;
+
+        /** Output image to show it in a port **/
+        ::base::samples::frame::Frame *frame_ptr = frameRight_out.write_access();
+
+        /** Find the pattern **/
+        foundRight = this->findPattern(s, rightImage, *frame_ptr, pointRightBuf);
+
+        /** Write to the out port **/
+        frame_ptr->time = rightFrame->time;
+        frameRight_out.reset(frame_ptr);
+        _right_frame_out.write(frameRight_out);
+
+    }
+
+    prevTimestamp = clock();
+
+
+    /** Stereo calibration **/
+    if (_right_frame.connected() && _left_frame.connected())
+    {
+        /** Store the points in the image plane only if both cameras found the pattern **/
+        if (foundLeft && foundRight)
+        {
+            imagePointsLeft.push_back(pointLeftBuf);
+            imagePointsRight.push_back(pointRightBuf);
+            std::cout<<"FOUND at ["<< leftFrame->time.toSeconds() <<"] ["<< leftFrame->time.toSeconds()<<"\n";
+            std::cout<<"Time (msec) are Left: "<<leftFrame->time.toMilliseconds()<<" Right:"<<rightFrame->time.toMilliseconds()<<"\n";
+        }
+    }
+    else if (_right_frame.connected()) // Mono calibration first camera connected
+    {
+    }
+    else if (_left_frame.connected()) // Mono calibration second camera connected
+    {
+
     }
 
     /** Exit the update Hook **/
@@ -178,17 +187,17 @@ void Task::updateHook()
     {
 
         std::cout<<"Running Calibration .... ";
-        runCalibrationAndSave(s, imageSize,  cameraMatrix, distCoeffs, imagePoints);
+        runCalibrationAndSave(s, imageSize,  cameraMatrixLeft, distCoeffsLeft, imagePointsLeft);
         std::cout<<"[DONE] ";
 
       //  /** If undistorted output is selected in the configuration file **/
       //  if(s.showUndistorsed )
       //  {
-      //      Mat temp = view_left.clone();
-      //      undistort(temp, view_left, cameraMatrix, distCoeffs);
+      //      Mat temp = view.clone();
+      //      undistort(temp, view, cameraMatrix, distCoeffs);
       //  }
 
-      //  imshow("Image View Undist", view_left);
+      //  imshow("Image View Undist", view);
 
         return;
     }
@@ -205,6 +214,62 @@ void Task::stopHook()
 void Task::cleanupHook()
 {
     TaskBase::cleanupHook();
+}
+
+bool Task::findPattern (const Settings &s, const base::samples::frame::Frame &imageInput,
+                        base::samples::frame::Frame &imageOutput,
+                        std::vector<cv::Point2f> &pointBuf,
+                        const bool blinkOutput)
+{
+    /** Convert to OpenCv format **/
+    cv::Mat view = frame_helper::FrameHelper::convertToCvMat(imageInput);
+
+    imageSize = view.size();  // Format input image.
+    if( s.flipVertical )    flip( view, view, 0 );
+
+    /** Find the pattern **/
+    bool found;
+    switch( s.calibrationPattern ) // Find feature points on the input format
+    {
+        case Settings::CHESSBOARD:
+            found = findChessboardCorners( view, s.boardSize, pointBuf,
+                CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
+            break;
+        case Settings::CIRCLES_GRID:
+            found = findCirclesGrid( view, s.boardSize, pointBuf );
+            break;
+        case Settings::ASYMMETRIC_CIRCLES_GRID:
+            found = findCirclesGrid( view, s.boardSize, pointBuf, CALIB_CB_ASYMMETRIC_GRID );
+            break;
+        default:
+            found = false;
+            break;
+    }
+
+    /** If the pattern is found **/
+    if (found)
+    {
+        /** Improve the found corners' coordinate accuracy for chessboard **/
+        if( s.calibrationPattern == Settings::CHESSBOARD)
+        {
+            cv::Mat viewGray;
+            cvtColor(view, viewGray, CV_BGR2GRAY);
+            cornerSubPix( viewGray, pointBuf, Size(11,11),
+                Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
+        }
+
+        /** Draw the corners. **/
+        drawChessboardCorners( view, s.boardSize, Mat(pointBuf), found );
+    }
+
+    /** Inverse of bits array **/
+    if( blinkOutput )
+        bitwise_not(view, view);
+
+    /** Copy to Frame type **/
+    frame_helper::FrameHelper::copyMatToFrame (view, imageOutput);
+
+    return found;
 }
 double Task::computeReprojectionErrors( const std::vector<std::vector<cv::Point3f> >& objectPoints,
                                          const std::vector<std::vector<cv::Point2f> >& imagePoints,

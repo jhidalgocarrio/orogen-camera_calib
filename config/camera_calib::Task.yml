@@ -12,7 +12,7 @@ Calibrate_FixPrincipalPointAtTheCenter: true
 # The type of input used for camera calibration.One of: CHESSBOARD CIRCLES_GRID ASYMMETRIC_CIRCLES_GRID.
 Calibrate_Pattern: CHESSBOARD
 #  Time (in milliseconds) delay between frames
-Input_Delay: 1000000
+Input_Delay: 100
 # If true (non-zero) we flip the input images around the horizontal axis.
 Input_FlipAroundHorizontalAxis: false
 # If true (non-zero) we show after calibration the undistorted images.

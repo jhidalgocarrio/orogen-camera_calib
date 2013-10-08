@@ -82,16 +82,23 @@ task_context "Task" do
     #******* Input ports  *********
     #******************************
     input_port("left_frame", ro_ptr('base::samples::frame::Frame')).
-        doc 'First camera frame.'
+        doc 'First camera frame (left in a stereo configuration).'
     input_port("right_frame", ro_ptr('base::samples::frame::Frame')).
-        doc 'Second camera frame.'
+        doc 'Second camera frame (right in a stereo configuration).'
 
     # An output port, i.e. an object to which the component pushes data so that
     # it is transmitted to other components' inputs
     #
     # Data can be written using _output.write(value). _output.connected() returns
     # if this output is connected to an input or not.
-    output_port "output", "int"
+    output_port("left_frame_out", ro_ptr('base::samples::frame::Frame')).
+        doc 'First camera frame with pattern detected.'
+
+    output_port("right_frame_out", ro_ptr('base::samples::frame::Frame')).
+        doc 'Second camera frame with pattern detected.'
+
+    output_port("rectify_frame_out", ro_ptr('base::samples::frame::Frame')).
+        doc 'Rectified Frame.'
 
     # If you want that component's updateHook() to be executed when the "input"
     # port gets data, uncomment this and comment the 'periodic' line

@@ -36,7 +36,7 @@ namespace camera_calib
             }
             if (squareSize <= 10e-6)
             {
-                std::cerr << "Invalid square size " << squareSize << std::endl;
+                std::cerr << "Invalid Square size " << squareSize << std::endl;
                 goodInput = false;
             }
                         flag = 0;
@@ -101,14 +101,18 @@ tasks/Task.cpp, and will be put in the camera_calib namespace.
 	friend class TaskBase;
     protected:
 
-        /** General setting file **/
-        Settings s;
-        cv::Mat view_left, view_right; //! Stream image in OpenCV format
-        frame_helper::FrameHelper frameHelper; /** Frame helper **/
-        std::vector<std::vector<cv::Point2f> > imagePoints;
-        cv::Mat cameraMatrix, distCoeffs;
-        cv::Size imageSize;
-        clock_t prevTimestamp;
+        Settings s; //! Properties of the task
+        cv::Size imageSize; //!Image size in OpenCV
+        clock_t prevTimestamp; //! For the timing
+        frame_helper::FrameHelper frameHelper; //! Frame helper
+        std::vector<std::vector<cv::Point2f> > imagePointsLeft, imagePointsRight; //!Points in the image plane
+        cv::Mat cameraMatrixLeft, distCoeffsLeft; //!Intrinsic parameters for camera left
+        cv::Mat cameraMatrixRight, distCoeffsRight; //!Intrinsic parameters for camera right
+
+        /** Output ports **/
+        RTT::extras::ReadOnlyPointer<base::samples::frame::Frame> frameLeft_out; /** Debug frame image **/
+        RTT::extras::ReadOnlyPointer<base::samples::frame::Frame> frameRight_out; /** Debug frame image **/
+
 
     public:
         /** TaskContext constructor for Task
@@ -191,6 +195,12 @@ tasks/Task.cpp, and will be put in the camera_calib namespace.
                 std::vector<std::vector<cv::Point2f> > imagePoints);
 
     private:
+
+        bool findPattern (const Settings &s, const base::samples::frame::Frame &imageInput,
+                        base::samples::frame::Frame &imageOutput,
+                        std::vector<cv::Point2f> &pointBuf,
+                        const bool blinkOutput = false);
+
         void calcBoardCornerPositions(cv::Size boardSize, float squareSize, std::vector<cv::Point3f>& corners,
                                      Settings::Pattern patternType /*= Settings::CHESSBOARD*/);
 
