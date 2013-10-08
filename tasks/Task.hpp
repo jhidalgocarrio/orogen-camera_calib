@@ -26,45 +26,6 @@ namespace camera_calib
         enum Pattern { NOT_EXISTING, CHESSBOARD, CIRCLES_GRID, ASYMMETRIC_CIRCLES_GRID };
         enum InputType {INVALID, CAMERA, VIDEO_FILE, IMAGE_LIST};
 
-        void write(cv::FileStorage& fs) const                        //Write serialization for this class
-        {
-            fs << "{" << "BoardSize_Width"  << boardSize.width
-                      << "BoardSize_Height" << boardSize.height
-                      << "Square_Size"         << squareSize
-                      << "Calibrate_Pattern" << patternToUse
-                      << "Calibrate_NrOfFrameToUse" << nrFrames
-                      << "Calibrate_FixAspectRatio" << aspectRatio
-                      << "Calibrate_AssumeZeroTangentialDistortion" << calibZeroTangentDist
-                      << "Calibrate_FixPrincipalPointAtTheCenter" << calibFixPrincipalPoint
-
-                      << "Write_DetectedFeaturePoints" << bwritePoints
-                      << "Write_extrinsicParameters"   << bwriteExtrinsics
-                      << "Write_outputFileName"  << outputFileName
-
-                      << "Show_UndistortedImage" << showUndistorsed
-
-                      << "Input_FlipAroundHorizontalAxis" << flipVertical
-                      << "Input_Delay" << delay
-               << "}";
-        }
-        void read(const cv::FileNode& node)                          //Read serialization for this class
-        {
-            node["BoardSize_Width" ] >> boardSize.width;
-            node["BoardSize_Height"] >> boardSize.height;
-            node["Calibrate_Pattern"] >> patternToUse;
-            node["Square_Size"]  >> squareSize;
-            node["Calibrate_NrOfFrameToUse"] >> nrFrames;
-            node["Calibrate_FixAspectRatio"] >> aspectRatio;
-            node["Write_DetectedFeaturePoints"] >> bwritePoints;
-            node["Write_extrinsicParameters"] >> bwriteExtrinsics;
-            node["Write_outputFileName"] >> outputFileName;
-            node["Calibrate_AssumeZeroTangentialDistortion"] >> calibZeroTangentDist;
-            node["Calibrate_FixPrincipalPointAtTheCenter"] >> calibFixPrincipalPoint;
-            node["Input_FlipAroundHorizontalAxis"] >> flipVertical;
-            node["Show_UndistortedImage"] >> showUndistorsed;
-            node["Input_Delay"] >> delay;
-            interprate();
-        }
         void interprate()
         {
             goodInput = true;
@@ -78,13 +39,7 @@ namespace camera_calib
                 std::cerr << "Invalid square size " << squareSize << std::endl;
                 goodInput = false;
             }
-            if (nrFrames <= 0)
-            {
-                std::cerr << "Invalid number of frames " << nrFrames << std::endl;
-                goodInput = false;
-            }
-
-            flag = 0;
+                        flag = 0;
             if(calibFixPrincipalPoint) flag |= CV_CALIB_FIX_PRINCIPAL_POINT;
             if(calibZeroTangentDist)   flag |= CV_CALIB_ZERO_TANGENT_DIST;
             if(aspectRatio)            flag |= CV_CALIB_FIX_ASPECT_RATIO;
@@ -99,14 +54,12 @@ namespace camera_calib
                 std::cerr << " Inexistent camera calibration mode: " << patternToUse << std::endl;
                 goodInput = false;
             }
-            atImageList = 0;
         }
 
     public:
         cv::Size boardSize;        // The size of the board -> Number of items by width and height
         Pattern calibrationPattern;// One of the Chessboard, circles, or asymmetric circle pattern
         float squareSize;          // The size of a square in your defined unit (point, millimeter,etc).
-        int nrFrames;              // The number of frames to use from the input for calibration
         float aspectRatio;         // The aspect ratio
         int delay;                 // Delay between frames
         bool bwritePoints;         //  Write detected feature points
@@ -117,13 +70,9 @@ namespace camera_calib
         std::string outputFileName; // The name of the file where to write
         bool showUndistorsed;       // Show undistorted images after calibration
 
-        std::vector<std::string> imageList;
-        int atImageList;
-        InputType inputType;
         bool goodInput;
         int flag;
 
-    private:
         std::string patternToUse;
 
 
@@ -154,13 +103,12 @@ tasks/Task.cpp, and will be put in the camera_calib namespace.
 
         /** General setting file **/
         Settings s;
+        cv::Mat view_left, view_right; //! Stream image in OpenCV format
+        frame_helper::FrameHelper frameHelper; /** Frame helper **/
         std::vector<std::vector<cv::Point2f> > imagePoints;
         cv::Mat cameraMatrix, distCoeffs;
         cv::Size imageSize;
         clock_t prevTimestamp;
-
-
-
 
     public:
         /** TaskContext constructor for Task
@@ -242,14 +190,20 @@ tasks/Task.cpp, and will be put in the camera_calib namespace.
                 cameraMatrix, cv::Mat& distCoeffs,
                 std::vector<std::vector<cv::Point2f> > imagePoints);
 
-    };
+    private:
+        void calcBoardCornerPositions(cv::Size boardSize, float squareSize, std::vector<cv::Point3f>& corners,
+                                     Settings::Pattern patternType /*= Settings::CHESSBOARD*/);
 
-    static void read(const cv::FileNode& node, Settings& x, const Settings& default_value = Settings())
-    {
-        if(node.empty())
-            x = default_value;
-        else
-            x.read(node);
+        double computeReprojectionErrors(const std::vector<std::vector<cv::Point3f> >& objectPoints,
+                                         const std::vector<std::vector<cv::Point2f> >& imagePoints,
+                                         const std::vector<cv::Mat>& rvecs, const std::vector<cv::Mat>& tvecs,
+                                         const cv::Mat& cameraMatrix , const cv::Mat& distCoeffs,
+                                         std::vector<float>& perViewErrors);
+
+        bool runCalibration(Settings& s, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs,
+                            std::vector<std::vector<cv::Point2f> > imagePoints, std::vector<cv::Mat>& rvecs, std::vector<cv::Mat>& tvecs,
+                            std::vector<float>& reprojErrs,  double& totalAvgErr);
+
     };
 
 }

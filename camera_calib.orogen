@@ -25,11 +25,51 @@ task_context "Task" do
     # transition to a setup where all components use a configuration step.
     needs_configuration
 
-    #**************************
-    #**** Task Properties *****
-    #**************************
-    property("config_file","string", "default.xml").
-        doc 'Relative path for the configuration file. It takes "default.xml" by default file'
+    #*********************************
+    #**** Calibration Properties *****
+    #*********************************
+    property("BoardSize_Width","int", 9).
+        doc 'Number of inner corners per a item row and column. (square, circle)'
+
+    property("BoardSize_Height","int", 6).
+        doc 'Number of inner corners per a item row and column. (square, circle)'
+
+    property("Square_Size","int", 36).
+        doc ' The size of a square in some user defined metric system (pixel, millimeter).'
+
+    property("Calibrate_Pattern","string", "CHESSBOARD").
+        doc 'The type of input used for camera calibration.'+
+        'One of: CHESSBOARD CIRCLES_GRID ASYMMETRIC_CIRCLES_GRID.'
+
+    property("Input_FlipAroundHorizontalAxis","bool", false).
+        doc 'If true (non-zero) we flip the input images around the horizontal axis.'
+
+    property("Input_Delay","int", 100).
+        doc ' Time (in milliseconds) delay between frames'
+
+    property("Calibrate_FixAspectRatio","double", 1.0).
+        doc 'Consider only fy as a free parameter, the ratio fx/fy stays the same as in the input cameraMatrix.'+
+	   'Use or not setting. 0 - False Non-Zero - True'
+
+    property("Calibrate_AssumeZeroTangentialDistortion","bool", true).
+        doc 'If true (non-zero) tangential distortion coefficients  are set to zeros and stay zero'
+
+    property("Calibrate_FixPrincipalPointAtTheCenter","bool", true).
+        doc 'If true (non-zero) the principal point is not changed during the global optimization.'
+
+    property("Write_outputFileName","string", "out_camera_data.yml").
+        doc 'The type of input used for camera calibration.'
+
+    property("Write_DetectedFeaturePoints","bool", true).
+        doc 'If true (non-zero) we write to the output file the feature points.'
+
+    property("Write_extrinsicParameters","bool", true).
+        doc 'If true (non-zero) we write to the output file the extrinsic camera parameters.'
+
+    property("Show_UndistortedImage","bool", true).
+        doc 'If true (non-zero) we show after calibration the undistorted images.'
+
+
 
     # An input port, i.e. an object from which the component gets data from
     # other components' outputs

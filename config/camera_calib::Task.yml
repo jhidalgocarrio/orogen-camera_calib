@@ -1,0 +1,27 @@
+--- name:default
+# Number of inner corners per a item row and column. (square, circle)
+BoardSize_Height: 6
+# Number of inner corners per a item row and column. (square, circle)
+BoardSize_Width: 9
+# If true (non-zero) tangential distortion coefficients  are set to zeros and stay zero
+Calibrate_AssumeZeroTangentialDistortion: true
+# Consider only fy as a free parameter, the ratio fx/fy stays the same as in the input cameraMatrix.Use or not setting. 0 - False Non-Zero - True
+Calibrate_FixAspectRatio: 1.0
+# If true (non-zero) the principal point is not changed during the global optimization.
+Calibrate_FixPrincipalPointAtTheCenter: true
+# The type of input used for camera calibration.One of: CHESSBOARD CIRCLES_GRID ASYMMETRIC_CIRCLES_GRID.
+Calibrate_Pattern: CHESSBOARD
+#  Time (in milliseconds) delay between frames
+Input_Delay: 1000000
+# If true (non-zero) we flip the input images around the horizontal axis.
+Input_FlipAroundHorizontalAxis: false
+# If true (non-zero) we show after calibration the undistorted images.
+Show_UndistortedImage: true
+#  The size of a square in some user defined metric system (pixel, millimeter).
+Square_Size: 36
+# If true (non-zero) we write to the output file the feature points.
+Write_DetectedFeaturePoints: true
+# If true (non-zero) we write to the output file the extrinsic camera parameters.
+Write_extrinsicParameters: true
+# The type of input used for camera calibration.
+Write_outputFileName: out_camera_data.yml
