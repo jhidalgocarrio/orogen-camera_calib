@@ -91,7 +91,7 @@ void Task::updateHook()
         base::samples::frame::Frame leftImage;
 
         /** Whatever format it is, try to convert to RGB unless it is GRAYSCALE **/
-        if (leftFrame->getFrameMode() != base::samples::frame::MODE_GRAYSCALE)
+        if ((leftFrame->getFrameMode() != base::samples::frame::MODE_GRAYSCALE) && (leftFrame->getFrameMode() != base::samples::frame::MODE_BGR))
         {
             leftImage.frame_mode = base::samples::frame::MODE_BGR;
             leftImage.setDataDepth(leftFrame->getDataDepth());
@@ -127,7 +127,7 @@ void Task::updateHook()
         base::samples::frame::Frame rightImage;
 
         /** Whatever format it is, try to convert to RGB unless it is GRAYSCALE **/
-        if (rightFrame->getFrameMode() != base::samples::frame::MODE_GRAYSCALE)
+        if ((rightFrame->getFrameMode() != base::samples::frame::MODE_GRAYSCALE) && (rightFrame->getFrameMode() != base::samples::frame::MODE_BGR))
         {
             rightImage.frame_mode = base::samples::frame::MODE_BGR;
             rightImage.setDataDepth(rightFrame->getDataDepth());
